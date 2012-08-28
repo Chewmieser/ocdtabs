@@ -241,13 +241,6 @@ function handleTabUpdates(tab_id,changes,tab){
 	if (!f){
 		// We don't know the new host... Add it to the system
 		if (changes.status!="complete"){return;} // Ignore non-complete loads (we want a favicon)
-		var newCont=windows[tabOb.w].containers.push({
-			host: tab.url.split('/')[2],
-			icon: tab.favIconUrl,
-			tab_id: -1,
-			active: false,
-			tabs: [{tab_id:tab_id,url:tab.url}]
-		})-1;
 		
 		// Remove the tab from its previous host
 		if (tabOb.f){
@@ -259,6 +252,14 @@ function handleTabUpdates(tab_id,changes,tab){
 				windows[tabOb.w].containers.splice(tabOb.c,1);
 			}
 		}
+		
+		var newCont=windows[tabOb.w].containers.push({
+			host: tab.url.split('/')[2],
+			icon: tab.favIconUrl,
+			tab_id: -1,
+			active: false,
+			tabs: [{tab_id:tab_id,url:tab.url}]
+		})-1;
 		
 		// Run an inflate on the new group (will just deflate old groups)
 		inflateGroup(tabOb.w,newCont,true);
