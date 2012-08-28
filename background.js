@@ -126,6 +126,10 @@ function deflateGroup(win,con){
 // - Deflates all other active groups
 // - Sets itself as active and removes it's group tab
 function inflateGroup(win,con,ignoreActiveSet){
+	// Don't inflate the group if it's currently active...
+	// There's just no reason to!
+	if (windows[win].containers[con].active){return;}
+	
 	// Move group tabs to the proper window
 	var tabList=[];
 	for (t in windows[win].containers[con].tabs){
@@ -139,7 +143,7 @@ function inflateGroup(win,con,ignoreActiveSet){
 		var a=this.ias?false:true;
 		chrome.tabs.update(this.tabId,{active:a},function(o){
 			// Next, move all tabs from an active group
-			for (c in windows[win].containers){
+			for (c in windows[win].containers){ 
 				if (windows[win].containers[c].active){
 					deflateGroup(win,c);
 				}
@@ -156,6 +160,9 @@ function inflateGroup(win,con,ignoreActiveSet){
 	}.bind(obUp));
 }
 
+// Resolves a tab id into a window/container/tab reference
+// - INPUT: tab id, window id (optional)
+// - RETURNS: an object referencing the array, if found
 function lookupTabId(tab_id,win){
 	var tabOb={f:false,g:false,w:-1,c:-1,t:-1}
 	if (win!="undefined"){tabOb.w=win}
@@ -195,7 +202,6 @@ function handleTabUpdates(tab_id,changes,tab){
 	for (w in windows){
 		if (windows[w].id==tab.windowId){win=w;}
 	}
-	
 	if (win==-1){return;} // The window isn't being tracked. Ignore for now.
 	
 	// Next, figure our if we currently have the tab in our system
