@@ -133,16 +133,10 @@ function inflateGroup(win,con,ignoreActiveSet){
 	}
 	
 	// Move and force the first tab to become active
-	var ignore;
-	if (ignoreActiveSet=="undefined"){ignore=false}else{ignore=ignoreActiveSet;}
+	var ignore=(ignoreActiveSet=="undefined")?false:ignoreActiveSet;
 	var obUp={tabId:tabList[0],win:win,con:con,ias:ignore};
 	chrome.tabs.move(tabList,{windowId:windows[win].id,index:-1},function(o){
-		var a;
-		if (this.ias){
-			a=false;
-		}else{
-			a=true;
-		}
+		var a=this.ias?false:true;
 		chrome.tabs.update(this.tabId,{active:a},function(o){
 			// Next, move all tabs from an active group
 			for (c in windows[win].containers){
@@ -162,6 +156,28 @@ function inflateGroup(win,con,ignoreActiveSet){
 	}.bind(obUp));
 }
 
+function lookupTabId(tab_id,win){
+	var tabOb={f:false,g:false,w:-1,c:-1,t:-1}
+	if (win!="undefined"){tabOb.w=win}
+	for (w in windows){
+		for (c in windows[w].containers){
+			if (windows[w].containers[c].tab_id==tab_id){
+				// A group has been updated
+				tabOb.f=true;tabOb.g=true;tabOb.w=w;tabOb.c=c;
+			}
+
+			for (t in windows[w].containers[c].tabs){
+				if (windows[w].containers[c].tabs[t].tab_id==tab_id){
+					// A tab has been updated
+					tabOb.f=true;tabOb.g=false;tabOb.w=w;tabOb.c=c;tabOb.t=t;
+				}
+			}
+		}
+	}
+	
+	return tabOb;
+}
+
 /* |----[ Handler Functions ]----| */
 
 // Moves tabs between containers and updates their urls
@@ -177,26 +193,13 @@ function handleTabUpdates(tab_id,changes,tab){
 	// Resolve the window's ID
 	var win=-1;
 	for (w in windows){
-		if (windows[w].id==windowId){win=w;}
+		if (windows[w].id==tab.windowId){win=w;}
 	}
 	
 	if (win==-1){return;} // The window isn't being tracked. Ignore for now.
 	
 	// Next, figure our if we currently have the tab in our system
-	var tabOb={f:false,g:false,w:win,c:-1,t:-1}
-	for (c in windows[tabOb.w].containers){
-		if (windows[tabOb.w].containers[c].tab_id==tab_id){
-			// A group has been updated
-			tabOb.f=true;tabOb.g=true;tabOb.c=c;
-		}
-		
-		for (t in windows[tabOb.w].containers[c].tabs){
-			if (windows[tabOb.w].containers[c].tabs[t].tab_id==tab_id){
-				// A tab has been updated
-				tabOb.f=true;tabOb.g=false;tabOb.c=c;tabOb.t=t;
-			}
-		}
-	}
+	var tabOb=lookupTabId(tab_id,win);
 	
 	if (!tabOb.f && tab.url=="chrome://newtab/"){return;} // Stop if we have a new tab page
 	if (tabOb.f && tabOb.g){return;} // Stop if we have a group
@@ -252,26 +255,15 @@ function handleTabUpdates(tab_id,changes,tab){
 // - Resolves tab ID
 // - Removes the tab from the system
 // - Possibly removes the group from the system
-function handleTabRemoval(tab_id,info){
-	// What do we know about the tab? Is it something we have in our system?
-	// Is it a group? Is it a normal tab?
-	for (w in windows){
-		for (c in windows[w].containers){
-			if (windows[w].containers[c].tab_id==tab_id){
-				// It's a group. It's probably being removed by the system, so ignore it
-			}else{
-				for (t in windows[w].containers[c].tabs){
-					if (windows[w].containers[c].tabs[t].tab_id==tab_id){
-						// It's a regular tab. Stop tracking it
-						windows[w].containers[c].tabs.splice(t,1);
-						
-						// Do we need to remove the group?
-						if (windows[w].containers[c].tabs.length==0){
-							windows[w].containers.splice(c,1);
-						}
-					}
-				}
-			}
+function handleTabRemoval(tab_id,info){	
+	var tabOb=lookupTabId(tab_id);
+	if (tabOb.f && !tabOb.g){
+		// It's a regular tab. Stop tracking it
+		windows[tabOb.w].containers[tabOb.c].tabs.splice(tabOb.t,1);
+		
+		// Do we need to remove the group?
+		if (windows[tabOb.w].containers[tabOb.c].tabs.length==0){
+			windows[tabOb.w].containers.splice(tabOb.c,1);
 		}
 	}
 }
@@ -280,19 +272,9 @@ function handleTabRemoval(tab_id,info){
 // - Resolves a tab ID
 // - Calls inflateGroup to expand the group
 function handleTabActive(tab){
-	// Did we select a group to expand?
-	var tab_id=tab.tabId;
-	var window_id=tab.windowId;
-	
 	// Resolve tab and window IDs to IDs in our array
-	for (w in windows){
-		if (windows[w].id==window_id){
-			for (c in windows[w].containers){
-				if (windows[w].containers[c].tab_id==tab_id){
-					// It's a group. We've gotta expand it.
-					inflateGroup(w,c);
-				}
-			}
-		}
+	var tabOb=lookupTabId(tab.tabId);
+	if (tabOb.f && tabOb.g){
+		inflateGroup(tabOb.w,tabOb.c);
 	}
 }
