@@ -250,7 +250,15 @@ function handleTabUpdates(tab_id,changes,tab){
 		})-1;
 		
 		// Remove the tab from its previous host
-		if (tabOb.f){windows[tabOb.w].containers[tabOb.c].tabs.splice(tabOb.t,1);}
+		if (tabOb.f){
+			windows[tabOb.w].containers[tabOb.c].tabs.splice(tabOb.t,1);
+			
+			// Do we need to remove the old container?
+			if (windows[tabOb.w].containers[tabOb.c].tabs.length==0){
+				// Yup. Splice it out
+				windows[tabOb.w].containers.splice(tabOb.c,1);
+			}
+		}
 		
 		// Run an inflate on the new group (will just deflate old groups)
 		inflateGroup(tabOb.w,newCont,true);
